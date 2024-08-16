@@ -51,24 +51,24 @@ Here, "offset" refers to the threshold used to distinguish between positive and 
 python -u discriminator.py --dataset Epinions --offset 4
 ```
 ```bash
-python discriminator.py --dataset amazon-music --offset 4
+python -u discriminator.py --dataset amazon-music --offset 4
 ```
 ```bash
-python discriminator.py --dataset KuaiRand --offset 1
+python -u discriminator.py --dataset KuaiRand --offset 1
 ```
 ```bash
-python discriminator.py --dataset KuaiRec --offset 1
+python -u discriminator.py --dataset KuaiRec --offset 1
 ```
 ```bash
-python discriminator.py --dataset BitcoinOTC --offset 0
+python -u discriminator.py --dataset BitcoinOTC --offset 0
 ```
 ```bash
-python discriminator.py --dataset Bitcoin-alpha --offset 0
+python -u discriminator.py --dataset Bitcoin-alpha --offset 0
 ```
 ```bash
-python discriminator.py --dataset WikiElec --offset 0
+python -u discriminator.py --dataset WikiElec --offset 0
 ```
 
 ```bash
-python discriminator.py --dataset WikiRfa --offset 0
+python -u discriminator.py --dataset WikiRfa --offset 0
 ```
