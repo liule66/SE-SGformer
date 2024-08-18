@@ -1,5 +1,5 @@
 # SE-SGformer
-[Paper]() 
+[Paper](https://github.com/liule66/SE-SGformer/blob/main/pdf/paper.pdf) 
 
 Official code implementation of AAAI 2025 paper "**Self-Explainable Graph Transformers for Link Sign Prediction**".This work presents SE-SGformer, a self-explainable framework for signed graphs. It introduces a new Transformer architecture with positional encoding based on signed random walks, offering superior expressive power over existing methods. SE-SGformer replaces neural network-based decoders with a novel decision process that uses $K$-nearest (farthest) neighbors to predict edge signs, providing critical interpretability in decision-making.The overall architecture of SE-SGformer is illustrated as follows:
 
