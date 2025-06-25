@@ -39,7 +39,6 @@ class SE_SGformer(nn.Module):
         self.max_hop = args.max_hop
         self.node_in_lin = nn.Linear(self.input_node_dim, self.node_dim)
 
-        # 入度出度->正边的数量和负边的数量
         self.centrality_encoding = CentralityEncoding(
             max_degree=self.max_degree,
             node_dim=self.node_dim
