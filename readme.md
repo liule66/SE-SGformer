@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ## Datasets
 
-Datasets are provided in the `dataset` folder. We divided the dataset five times, with each division splitting the training and test sets at an 8:2 ratio. Five experiments were conducted, and the average of the results was taken.
+We divided the dataset five times, with each division splitting the training and test sets at an 8:2 ratio. Five experiments were conducted, and the average of the results was taken.
 
 ## Running the Code
 

@@ -6,40 +6,26 @@ import scipy.sparse
 import torch
 import networkx as nx
 from torch import nn, Tensor
-from torch_geometric.data import Data
-from torch_geometric.nn import global_mean_pool
-from torch_geometric.utils import to_dense_adj, structured_negative_sampling
-from sklearn.metrics import roc_auc_score, f1_score, accuracy_score
-from torch_geometric.utils.convert import to_networkx
 import torch.nn.functional as F
 from torch_geometric.utils import (
     coalesce,
     negative_sampling,
     structured_negative_sampling,
 )
-from layer import GraphormerEncoderLayer, CentralityEncoding, SpatialEncoding, EdgeEncoding
+
+from layer import GraphormerEncoderLayer, CentralityEncoding, RWEncoding, ADJEncoding
 from tmp import genWalk, generate_data
+
 if torch.cuda.is_available():
     device = torch.device('cuda')
-    torch.cuda.manual_seed_all(0)
 elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
     device = torch.device('mps')
 else:
     device = torch.device('cpu')
 
 
-class Graphormer(nn.Module):
+class SE_SGformer(nn.Module):
     def __init__(self, args):
-        """
-        :param num_layers: number of Graphormer layers
-        :param input_node_dim: input dimension of node features
-        :param node_dim: hidden dimensions of node features
-        :param output_dim: number of output node features
-        :param n_heads: number of attention heads
-        :param max_pos_degree: max pos degree of nodes
-        :param max_neg_degree: max neg degree of nodes
-
-        """
         super().__init__()
 
         self.num_layers = args.num_layers
@@ -49,29 +35,29 @@ class Graphormer(nn.Module):
         self.output_dim = args.output_dim
         self.num_heads = args.num_heads
         self.max_degree = args.max_degree
-
         self.length = args.length
         self.max_hop = args.max_hop
         self.node_in_lin = nn.Linear(self.input_node_dim, self.node_dim)
 
+        # 入度出度->正边的数量和负边的数量
         self.centrality_encoding = CentralityEncoding(
             max_degree=self.max_degree,
             node_dim=self.node_dim
         )
-        self.spatial_matrix = SpatialEncoding(
-
+        self.spatial_matrix = RWEncoding(
             num=self.num,
         )
 
-        self.adj_matrix = EdgeEncoding()
+        self.adj_matrix = ADJEncoding()
 
         self.layers = nn.ModuleList([
             GraphormerEncoderLayer(
                 node_dim=self.node_dim,
                 num_heads=self.num_heads,
+                # max_path_distance=self.max_path_distance
             ) for _ in range(self.num_layers)
         ])
-        self.lin = torch.nn.Linear(2 * args.output_dim, 3)
+        self.lin = torch.nn.Linear(2 * args.node_dim, 3)
         self.node_out_lin = nn.Linear(self.node_dim, self.output_dim)
 
     def split_edges(
@@ -127,6 +113,8 @@ class Graphormer(nn.Module):
         edge_index, val = coalesce(edge_index, val, num_nodes=N)
         val = val - 1
 
+        # Borrowed from:
+        # https://github.com/benedekrozemberczki/SGCN/blob/master/src/utils.py
         edge_index = edge_index.detach().numpy()
         val = val.detach().numpy()
         A = scipy.sparse.coo_matrix((val, edge_index), shape=(N, N))
@@ -135,28 +123,24 @@ class Graphormer(nn.Module):
         x = svd.components_.T
         return torch.from_numpy(x).to(torch.float).to(pos_edge_index.device)
 
-    def forward(self, x: Tensor, pos_edge_index: Tensor, neg_edge_index: Tensor, dataset_name: str, i: int) -> torch.Tensor:
+    def forward(self, x: Tensor, pos_edge_index: Tensor, neg_edge_index: Tensor) -> torch.Tensor:
         """
-        :param data: input graph of batch of graphs
         :return: torch.Tensor, output node embeddings
         """
-        # file = f'./train/{dataset_name}-{i}-train_edges.csv'
-        # train_edge_index, train_val, adj_unsigned, adj_signed, degree, offset = generate_data(file, x.shape[0])
-        # feature = genWalk(train_edge_index, adj_signed, degree, offset, x.shape[0], self.length, self.max_hop, self.num)
-        file = f'./train/train.txt'
-        feature_file = f"./srwr/spatial_pos"
+        file = './train/train_edges.csv'
+        feature_file = "./sign_random/bitcoinotc-spatial_pos"
         if not os.path.isfile(feature_file):
             train_edge_index, train_val, adj_unsigned, adj_signed, degree, offset = generate_data(file, x.shape[0])
-            spatial_pos = genWalk(train_edge_index, adj_signed, degree, offset, x.shape[0], self.length, self.max_hop, self.num)
-            torch.save(spatial_pos, feature_file)
+            feature = genWalk(train_edge_index, adj_signed, degree, offset, x.shape[0], self.length, self.max_hop, self.num)
+            torch.save(feature, feature_file)
 
         feature = torch.load(feature_file).to(device)
-
-        feature_abs  = torch.abs(feature)
+        # feature_abs = torch.abs(feature)
         epsilon = 1e-10
-        feature_reciprocal = torch.reciprocal(feature_abs + epsilon)
+        feature_reciprocal = torch.reciprocal(feature + epsilon)
         row_sum = feature.sum(dim=2, keepdim=True)
-        normalized_feature = (feature_reciprocal / row_sum).to(device)
+        normalized_feature = feature_reciprocal / row_sum
+
         x = self.node_in_lin(x)
         x = self.centrality_encoding(x, pos_edge_index, neg_edge_index)
 
@@ -167,7 +151,7 @@ class Graphormer(nn.Module):
             x = layer(x, adj_matrix, spatial_matrix)
 
         x = self.node_out_lin(x)
-        torch.save(x, f'./output/{dataset_name}-{i}-embedding.pt')
+        torch.save(x,f"./output/bitcoinotc_embedding")
         return x
 
     def discriminate(self, z: Tensor, edge_index: Tensor) -> Tensor:
@@ -267,7 +251,7 @@ class Graphormer(nn.Module):
         z: Tensor,
         pos_edge_index: Tensor,
         neg_edge_index: Tensor,
-    ) -> Tuple[float, float,float]:
+    ) -> Tuple[float, float]:
         """Evaluates node embeddings :obj:`z` on positive and negative test
         edges by computing AUC and F1 scores.
 
@@ -289,6 +273,5 @@ class Graphormer(nn.Module):
 
         auc = roc_auc_score(y, pred)
         f1 = f1_score(y, pred, average='binary') if pred.sum() > 0 else 0
-        acc = accuracy_score(y, pred.round())
 
-        return auc, f1,acc
+        return auc, f1
