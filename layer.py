@@ -35,20 +35,20 @@ class CentralityEncoding(nn.Module):
         :return: torch.Tensor, node embeddings after Centrality encoding
         """
         num_nodes = x.shape[0]
-
+        # 使用 torch.bincount 计算正度数和负度数
         positive_degrees = torch.bincount(pos_edge_index[0], minlength=num_nodes)
         negative_degrees = torch.bincount(neg_edge_index[0], minlength=num_nodes)
 
-  
+        # 使用 decrease_to_max_value 函数限制度数的最大值
         positive_degrees = self.decrease_to_max_value(positive_degrees, self.max_degree - 1)
         negative_degrees = self.decrease_to_max_value(negative_degrees, self.max_degree - 1)
 
-
+        # 将每个节点正度和负度的数值作为索引，挑选z_pos或z_neg的每行，形成每个节点的嵌入
         x += self.z_pos[positive_degrees] + self.z_neg[negative_degrees]
         return x
 
     def decrease_to_max_value(self, x, max_value):
-
+        "限制节点度的最大值"
         x[x > max_value] = max_value
         return x
 
@@ -87,13 +87,13 @@ class ADJEncoding(nn.Module):
         :param num_nodes: number of nodes
         :return:  adjacency matrix encoding
         """
-
+        # 初始化邻接矩阵，全0
         adj_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float)
 
-
+        # 填充正样本边
         adj_matrix[pos_edge_index[0], pos_edge_index[1]] = 1
         adj_matrix[pos_edge_index[1], pos_edge_index[0]] = 1
-
+        # 填充负样本边
         adj_matrix[neg_edge_index[0], neg_edge_index[1]] = -1
         adj_matrix[neg_edge_index[1], neg_edge_index[0]] = -1
         row_sum = adj_matrix.sum(dim = 1, keepdim = True)
