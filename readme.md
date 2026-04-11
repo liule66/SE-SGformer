@@ -73,10 +73,11 @@ python -u discriminator.py --dataset WikiElec --offset 0
 python -u discriminator.py --dataset WikiRfa --offset 0
 ```
 
-##BibTeX
+## BibTeX
 
 If you find our work useful in your research, please cite the following in your manuscript:
 
+```bash
 @inproceedings{li2025self,
   title={Self-Explainable Graph Transformer for Link Sign Prediction},
   author={Li, Lu and Liu, Jiale and Ji, Xingyu and Wang, Maojun and Zhang, Zeyu},
@@ -85,3 +86,4 @@ If you find our work useful in your research, please cite the following in your 
   pages={12084--12092},
   year={2025}
 }
+```
